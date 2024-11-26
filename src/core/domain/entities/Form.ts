@@ -1,28 +1,37 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Field } from "./Field";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Form {
   id: string;
   name: string;
   slug: string;
-  fields: Field[];
   submitLabel: string;
   endpoint?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  steps: FormStep[];
 }
 
-// export interface Field {
-//   options: any;
-//   helpText: any;
-//   id: string;
-//   formId: string;
-//   order: number;
-//   name: string;
-//   label: string;
-//   type: string;
-//   placeholder?: string;
-//   required: boolean;
-//   validation?: any;
-// }
+export interface FormStep {
+  id: string;
+  formId: string;
+  order: number;
+  title: string;
+  description?: string;
+  fields: Field[];
+  conditionalLogic?: StepConditionalLogic;
+}
+
+export interface StepConditionalLogic {
+  endpoint: string; // Endpoint para consulta
+  validation: StepValidation[];
+}
+
+export interface StepValidation {
+  field: string; // Campo para comparar
+  operator: "equals" | "contains" | "greater" | "less" | "between" | "exists";
+  value: any;
+  action: "show" | "hide" | "require" | "skip";
+  targetFields?: string[]; // Campos afetados pela validação
+}

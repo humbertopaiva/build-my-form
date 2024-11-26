@@ -11,8 +11,7 @@ export type FieldType =
   | "radio"
   | "checkbox"
   | "date"
-  | "time"
-  | "file";
+  | "time";
 
 export interface Field {
   id: string;
@@ -24,14 +23,29 @@ export interface Field {
   required: boolean;
   order: number;
   options?: FieldOption[];
+  validation?: ValidationConfig;
   helpText?: string;
-  validation?: ValidationConfig; // Mudamos para um objeto de configuração
-  conditional?: ConditionalRule;
+  conditionalLogic?: FieldConditionalLogic;
+}
+
+export interface FieldOption {
+  label: string;
+  value: string;
+}
+
+export interface AsyncValidation {
+  endpoint: string;
+  method: "GET" | "POST";
+  payloadFields: string[]; // Campos a serem enviados na requisição
+  responseMapping: {
+    [key: string]: string; // Mapeamento de campos da resposta para campos do formulário
+  };
 }
 
 export interface ValidationConfig {
   rules: ValidationRule[];
-  mask?: string; // Movemos a máscara para dentro da config
+  mask?: string;
+  async?: AsyncValidation;
 }
 
 export interface ValidationRule {
@@ -69,4 +83,15 @@ export type ConditionalOperator =
 export interface FieldOption {
   label: string;
   value: string;
+}
+
+export interface FieldCondition {
+  field: string;
+  operator: "equals" | "contains" | "greater" | "less";
+  value: any;
+}
+
+export interface FieldConditionalLogic {
+  conditions: FieldCondition[];
+  action: "show" | "hide" | "require" | "populate";
 }
