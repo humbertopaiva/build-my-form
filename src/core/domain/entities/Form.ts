@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { DataMappingConfig } from "./DataMapping";
 import { Field } from "./Field";
 
 export interface Form {
@@ -21,17 +22,18 @@ export interface FormStep {
   description?: string;
   fields: Field[];
   conditionalLogic?: StepConditionalLogic;
+  dataMapping?: DataMappingConfig; // Adicionado o data mapping
 }
 
 export interface StepConditionalLogic {
-  endpoint: string; // Endpoint para consulta
+  endpoint: string;
   validation: StepValidation[];
 }
 
 export interface StepValidation {
-  field: string; // Campo para comparar
+  field: string;
   operator: "equals" | "contains" | "greater" | "less" | "between" | "exists";
   value: any;
   action: "show" | "hide" | "require" | "skip";
-  targetFields?: string[]; // Campos afetados pela validação
+  targetFields?: string[];
 }

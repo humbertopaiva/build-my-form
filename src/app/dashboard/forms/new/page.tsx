@@ -233,6 +233,7 @@ import { Input } from "@/components/ui/input";
 import { StepBuilder } from "@/components/forms/BuilderComponents/StepBuilder";
 import { FormStep } from "@/core/domain/entities/Form";
 import { toast } from "@/hooks/use-toast";
+import { FormBuilderProvider } from "@/components/providers/FormBuilderProvider";
 
 const formSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -275,6 +276,8 @@ export default function NewFormPage() {
       });
       return;
     }
+
+    console.log(data);
 
     setIsSubmitting(true);
 
@@ -353,9 +356,11 @@ export default function NewFormPage() {
               />
             </div>
 
-            <div className="border rounded-lg p-6 bg-white">
-              <StepBuilder steps={steps} onChange={handleStepsChange} />
-            </div>
+            <FormBuilderProvider>
+              <div className="border rounded-lg p-6 bg-white">
+                <StepBuilder />
+              </div>
+            </FormBuilderProvider>
 
             <div className="flex justify-end gap-4">
               <Button

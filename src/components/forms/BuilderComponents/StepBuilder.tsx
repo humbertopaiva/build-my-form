@@ -1,7 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/forms/BuilderComponents/StepBuilder.tsx
-"use client";
-
-import { useState } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Card,
   CardContent,
@@ -11,49 +10,67 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
 import { Plus, Settings2 } from "lucide-react";
-import { FormStep } from "@/core/domain/entities/Form";
 import { FormBuilder } from "./FormBuilder";
 import { StepSettings } from "./StepSettings";
+import { useFormBuilder } from "@/store/form-builder";
+import { useState } from "react";
+import { FormStep } from "@/core/domain/entities/Form";
 
-interface StepBuilderProps {
-  steps: FormStep[];
-  onChange: (steps: FormStep[]) => void;
-}
+// Componente separado para o cabeçalho da etapa
+const StepHeader = ({
+  stepId,
+  title,
+  index,
+  onEditClick,
+}: {
+  stepId: string;
+  title: string;
+  index: number;
+  onEditClick: () => void;
+}) => {
+  return (
+    <div className="flex items-center gap-2">
+      <span>{title}</span>
+      {index > 0 && (
+        <div
+          className="ml-2 p-1 hover:bg-gray-100 rounded cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onEditClick();
+          }}
+        >
+          <Settings2 className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+  );
+};
 
-export function StepBuilder({ steps, onChange }: StepBuilderProps) {
-  const [activeStep, setActiveStep] = useState<string>(steps[0]?.id || "");
+export function StepBuilder() {
+  const { atoms, actions } = useFormBuilder();
+  const [activeStepId, setActiveStepId] = useAtom(atoms.activeStepId);
+  const steps = useAtomValue(atoms.steps);
+  const activeStep = useAtomValue(atoms.activeStep);
+  const addStep = useSetAtom(actions.addStep);
+  const updateStep = useSetAtom(actions.updateStep);
+  const deleteStep = useSetAtom(actions.deleteStep);
   const [isEditingStep, setIsEditingStep] = useState(false);
 
-  const addStep = () => {
-    const newStep: FormStep = {
-      id: `step-${Date.now()}`,
-      formId: "",
-      order: steps.length,
-      title: `Etapa ${steps.length + 1}`,
-      fields: [],
-    };
-
-    const updatedSteps = [...steps, newStep];
-    onChange(updatedSteps);
-    setActiveStep(newStep.id);
+  const handleStepUpdate = (updates: Partial<FormStep>) => {
+    if (activeStep) {
+      updateStep({ stepId: activeStep.id, data: updates });
+      setIsEditingStep(false);
+    }
   };
 
-  const updateStep = (stepId: string, updates: Partial<FormStep>) => {
-    const updatedSteps = steps.map((step) =>
-      step.id === stepId ? { ...step, ...updates } : step
-    );
-    onChange(updatedSteps);
+  const handleStepDelete = () => {
+    if (activeStep) {
+      deleteStep(activeStep.id);
+      setIsEditingStep(false);
+    }
   };
-
-  const deleteStep = (stepId: string) => {
-    const updatedSteps = steps.filter((step) => step.id !== stepId);
-    onChange(updatedSteps);
-    setActiveStep(updatedSteps[0]?.id || "");
-  };
-
-  const currentStep = steps.find((step) => step.id === activeStep);
 
   return (
     <div className="space-y-4">
@@ -65,56 +82,40 @@ export function StepBuilder({ steps, onChange }: StepBuilderProps) {
         </Button>
       </div>
 
-      <Tabs value={activeStep} onValueChange={setActiveStep}>
+      <Tabs value={activeStepId || undefined} onValueChange={setActiveStepId}>
         <TabsList className="w-full justify-start">
           {steps.map((step, index) => (
-            <TabsTrigger key={step.id} value={step.id} className="relative">
-              {step.title}
-              {index > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
-                  onClick={() => setIsEditingStep(true)}
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              )}
+            <TabsTrigger key={step.id} value={step.id}>
+              <StepHeader
+                stepId={step.id}
+                title={step.title}
+                index={index}
+                onEditClick={() => setIsEditingStep(true)}
+              />
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {currentStep && (
+        {activeStep && (
           <>
             <Card>
               <CardHeader>
-                <CardTitle>{currentStep.title}</CardTitle>
-                {currentStep.description && (
-                  <CardDescription>{currentStep.description}</CardDescription>
+                <CardTitle>{activeStep.title}</CardTitle>
+                {activeStep.description && (
+                  <CardDescription>{activeStep.description}</CardDescription>
                 )}
               </CardHeader>
               <CardContent>
-                <FormBuilder
-                  initialFields={currentStep.fields}
-                  onFieldsChange={(fields) =>
-                    updateStep(currentStep.id, { fields })
-                  }
-                />
+                <FormBuilder />
               </CardContent>
             </Card>
 
             {isEditingStep && (
               <StepSettings
-                step={currentStep}
+                step={activeStep}
                 onClose={() => setIsEditingStep(false)}
-                onUpdate={(updates) => {
-                  updateStep(currentStep.id, updates);
-                  setIsEditingStep(false);
-                }}
-                onDelete={() => {
-                  deleteStep(currentStep.id);
-                  setIsEditingStep(false);
-                }}
+                onUpdate={handleStepUpdate}
+                onDelete={handleStepDelete}
               />
             )}
           </>
