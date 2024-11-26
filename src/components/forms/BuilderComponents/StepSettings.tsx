@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -214,131 +213,128 @@ export function StepSettings({
               <span className="sr-only">Fechar</span>
             </Button>
 
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="flex flex-col"
-              >
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <div className="px-6 pt-4">
-                    <TabsList className="grid w-full grid-cols-3 gap-4">
-                      <TabsTrigger value="basic" className="w-full">
-                        Básico
-                      </TabsTrigger>
-                      <TabsTrigger value="validation" className="w-full">
-                        Validações
-                      </TabsTrigger>
-                      <TabsTrigger value="mapping" className="w-full">
-                        Mapeamento
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-
-                  <div className="p-6 space-y-6 min-h-[400px] max-h-[600px] overflow-y-auto">
-                    <TabsContent value="basic">
-                      <div className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="title"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Título da Etapa</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="description"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Descrição</FormLabel>
-                              <FormControl>
-                                <Input {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="endpoint"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Endpoint</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="https://api.example.com/validate"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="validation">
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                              <h4 className="text-sm font-medium">
-                                Regras de Validação
-                              </h4>
-                              <Button
-                                type="button"
-                                onClick={addValidation}
-                                variant="outline"
-                                size="sm"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Adicionar Regra
-                              </Button>
-                            </div>
-                            <ValidationsList />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-
-                    <TabsContent value="mapping">
-                      <DataMappingConfigComponent
-                        fields={step.fields}
-                        config={step.dataMapping}
-                        onUpdate={handleDataMappingUpdate}
-                      />
-                    </TabsContent>
-                  </div>
-                </Tabs>
-
-                <div className="flex items-center justify-between p-6 border-t bg-muted/50">
-                  {step.order > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={onDelete}
-                      className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir Etapa
-                    </Button>
-                  )}
-                  <div className="space-x-2 ml-auto">
-                    <Button type="button" variant="outline" onClick={onClose}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit">Salvar</Button>
-                  </div>
+            <div className="flex flex-col">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <div className="px-6 pt-4">
+                  <TabsList className="grid w-full grid-cols-3 gap-4">
+                    <TabsTrigger value="basic" className="w-full">
+                      Básico
+                    </TabsTrigger>
+                    <TabsTrigger value="validation" className="w-full">
+                      Validações
+                    </TabsTrigger>
+                    <TabsTrigger value="mapping" className="w-full">
+                      Mapeamento
+                    </TabsTrigger>
+                  </TabsList>
                 </div>
-              </form>
-            </Form>
+
+                <div className="p-6 space-y-6 min-h-[400px] max-h-[600px] overflow-y-auto">
+                  <TabsContent value="basic">
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Título da Etapa</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Descrição</FormLabel>
+                            <FormControl>
+                              <Input {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="endpoint"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Endpoint</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder="https://api.example.com/validate"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="validation">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-medium">
+                              Regras de Validação
+                            </h4>
+                            <Button
+                              type="button"
+                              onClick={addValidation}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Adicionar Regra
+                            </Button>
+                          </div>
+                          <ValidationsList />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="mapping">
+                    <DataMappingConfigComponent
+                      fields={step.fields}
+                      config={step.dataMapping}
+                      onUpdate={handleDataMappingUpdate}
+                    />
+                  </TabsContent>
+                </div>
+              </Tabs>
+
+              <div className="flex items-center justify-between p-6 border-t bg-muted/50">
+                {step.order > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onDelete}
+                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir Etapa
+                  </Button>
+                )}
+                <div className="space-x-2 ml-auto">
+                  <Button type="button" variant="outline" onClick={onClose}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={form.handleSubmit(onSubmit)}>
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
