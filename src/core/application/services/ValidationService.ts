@@ -123,12 +123,6 @@ export class ValidationService {
             case "show":
               fieldStates[fieldId].visible = true;
               break;
-            case "require":
-              fieldStates[fieldId].required = true;
-              break;
-            case "disable":
-              fieldStates[fieldId].disabled = true;
-              break;
           }
         }
       });

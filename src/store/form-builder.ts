@@ -2,7 +2,7 @@
 import { atom } from "jotai";
 import { focusAtom } from "jotai-optics";
 import { FormStep } from "@/core/domain/entities/Form";
-import { Field, WebhookVariable } from "@/core/domain/entities/Field";
+import { Field } from "@/core/domain/entities/Field";
 
 // Tipos
 interface FormBuilderState {
@@ -19,6 +19,8 @@ const initialState: FormBuilderState = {
   selectedFieldId: null,
   isDragging: false,
 };
+
+export const persistentStepsAtom = atom<FormStep[]>([]);
 
 // Atom principal
 export const formBuilderAtom = atom<FormBuilderState>(initialState);
@@ -52,32 +54,44 @@ export const selectedFieldAtom = atom((get) => {
   );
 });
 
-interface NewStepData {
-  title: string;
-  description: string;
-  order: number;
-  fields: Field[];
-  variables: WebhookVariable[];
-}
+// interface NewStepData extends Omit<FormStep, "formId"> {
+//   id: string;
+//   title: string;
+//   description: string;
+//   order: number;
+//   fields: Field[];
+//   variables: WebhookVariable[];
+//   // outros campos necessários da interface FormStep
+// }
 // Actions
 export const formBuilderActions = {
-  addStep: atom(null, (get, set, newStepData: NewStepData) => {
-    const uuid = crypto.randomUUID();
-    const formState = get(formBuilderAtom);
+  addStep: atom(null, (get, set, newStepData: Partial<FormStep>) => {
+    const currentSteps = get(persistentStepsAtom);
+    const newStep: FormStep = {
+      id: crypto.randomUUID(),
+      formId: "",
+      title: newStepData.title || `Etapa ${currentSteps.length + 1}`,
+      description: newStepData.description || "",
+      order: newStepData.order || currentSteps.length,
+      fields: newStepData.fields || [],
+      variables: newStepData.variables || [],
+      conditions: newStepData.conditions || [],
+      webhook: newStepData.webhook || {
+        enabled: false,
+        endpoint: "",
+        method: "POST",
+        variables: [],
+        authType: "none",
+        selectedFields: [],
+      },
+    };
 
+    set(persistentStepsAtom, [...currentSteps, newStep]);
     set(formBuilderAtom, {
-      ...formState,
-      steps: [
-        ...formState.steps,
-        {
-          id: uuid,
-          formId: "", // será preenchido quando salvar no backend
-          ...newStepData,
-        },
-      ],
+      ...get(formBuilderAtom),
+      steps: [...currentSteps, newStep],
+      activeStepId: newStep.id,
     });
-
-    return uuid;
   }),
 
   updateStep: atom(

@@ -2,7 +2,7 @@
 // src/components/forms/BuilderComponents/StepBuilder.tsx
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -48,7 +48,11 @@ function StepHeader({ stepId, title, index, onEditClick }: StepHeaderProps) {
   );
 }
 
-export function StepBuilder() {
+interface StepBuilderProps {
+  onStepsChange?: (steps: FormStep[]) => void;
+}
+
+export function StepBuilder({ onStepsChange }: StepBuilderProps) {
   const { atoms, actions } = useFormBuilder();
   const [activeStepId, setActiveStepId] = useAtom(atoms.activeStepId);
   const steps = useAtomValue(atoms.steps);
@@ -57,6 +61,10 @@ export function StepBuilder() {
   const updateStep = useSetAtom(actions.updateStep);
   const deleteStep = useSetAtom(actions.deleteStep);
   const [isEditingStep, setIsEditingStep] = useState(false);
+
+  useEffect(() => {
+    onStepsChange?.(steps);
+  }, [steps, onStepsChange]);
 
   // Função para criar o formData necessário para o FormBuilder
   const formData: Form = {
@@ -122,6 +130,7 @@ export function StepBuilder() {
 
   const handleAddStep = () => {
     const newStepOrder = steps.length;
+
     addStep({
       title: `Etapa ${newStepOrder + 1}`,
       description: "",
@@ -130,6 +139,10 @@ export function StepBuilder() {
       variables: [],
     });
   };
+
+  useEffect(() => {
+    console.log("Current steps:", steps);
+  }, [steps]);
 
   return (
     <div className="space-y-4">

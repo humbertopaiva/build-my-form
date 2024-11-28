@@ -1,8 +1,10 @@
-// src/components/providers/FormBuilderProvider.tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// components/providers/FormBuilderProvider.tsx
 import { Provider } from "jotai";
 import { useHydrateAtoms } from "jotai/utils";
 import { FormStep } from "@/core/domain/entities/Form";
 import { formBuilderAtom } from "@/store/form-builder";
+import { useState } from "react";
 
 interface FormBuilderProviderProps {
   initialSteps?: FormStep[];
@@ -10,31 +12,31 @@ interface FormBuilderProviderProps {
 }
 
 function FormBuilderStateHydration({
-  initialSteps,
+  initialState,
   children,
-}: FormBuilderProviderProps) {
-  useHydrateAtoms([
-    [
-      formBuilderAtom,
-      {
-        steps: initialSteps || [],
-        activeStepId: initialSteps?.[0]?.id || null,
-        selectedFieldId: null,
-        isDragging: false,
-      },
-    ],
-  ]);
-
+}: {
+  initialState: any;
+  children: React.ReactNode;
+}) {
+  useHydrateAtoms([[formBuilderAtom, initialState]]);
   return <>{children}</>;
 }
 
 export function FormBuilderProvider({
-  initialSteps,
   children,
+  initialSteps = [],
 }: FormBuilderProviderProps) {
+  // Use useState para manter o estado entre renderizações
+  const [initialState] = useState(() => ({
+    steps: initialSteps,
+    activeStepId: initialSteps[0]?.id || null,
+    selectedFieldId: null,
+    isDragging: false,
+  }));
+
   return (
     <Provider>
-      <FormBuilderStateHydration initialSteps={initialSteps}>
+      <FormBuilderStateHydration initialState={initialState}>
         {children}
       </FormBuilderStateHydration>
     </Provider>

@@ -30,10 +30,20 @@ export function MultiStepForm({ form, onComplete }: MultiStepFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const formElement = e.target as HTMLFormElement;
-    const formData = new FormData(formElement);
-    const stepData = Object.fromEntries(formData);
-    await nextStep(stepData);
+    const formElement = e.target as HTMLDivElement; // Alterado de HTMLFormElement
+    // Como agora é uma div, precisamos coletar os dados de outra forma
+    const formData: Record<string, any> = {};
+    const inputs = formElement.querySelectorAll("input, select, textarea");
+    inputs.forEach((input) => {
+      const element = input as
+        | HTMLInputElement
+        | HTMLSelectElement
+        | HTMLTextAreaElement;
+      if (element.name) {
+        formData[element.name] = element.value;
+      }
+    });
+    await nextStep(formData);
   };
 
   const handleFieldChange = (
@@ -66,7 +76,8 @@ export function MultiStepForm({ form, onComplete }: MultiStepFormProps) {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit}>
+      {/* Mudamos de form para div aqui */}
+      <div onSubmit={handleSubmit}>
         <div className="space-y-6">
           {currentStep.fields.map((field) => {
             const fieldState = fieldStates[field.id];
@@ -101,7 +112,10 @@ export function MultiStepForm({ form, onComplete }: MultiStepFormProps) {
             Anterior
           </Button>
 
-          <Button type="submit" disabled={loading}>
+          <Button
+            onClick={handleSubmit} // Mudamos para onClick ao invés de type="submit"
+            disabled={loading}
+          >
             {loading
               ? "Carregando..."
               : currentStepIndex === form.steps.length - 1
@@ -109,7 +123,7 @@ export function MultiStepForm({ form, onComplete }: MultiStepFormProps) {
               : "Próximo"}
           </Button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

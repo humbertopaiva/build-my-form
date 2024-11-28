@@ -66,9 +66,9 @@ export function DynamicField({
           return Array.isArray(targetValue)
             ? targetValue.includes(condition.value)
             : String(targetValue).includes(String(condition.value));
-        case "greater":
+        case "greaterThan":
           return Number(targetValue) > Number(condition.value);
-        case "less":
+        case "lessThan":
           return Number(targetValue) < Number(condition.value);
         default:
           return true;

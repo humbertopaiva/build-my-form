@@ -1,37 +1,53 @@
-import { NextRequest, NextResponse } from "next/server";
-import { CreateFormUseCase } from "@/core/domain/usecases/form/CreateFormUseCase";
-import { PrismaFormRepository } from "@/core/application/infrastructure/database/repositories/PrismaFormRepository";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// app/api/forms/route.ts
 
-export async function POST(request: NextRequest) {
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+export async function POST(request: Request) {
   try {
-    const formRepository = new PrismaFormRepository();
-    const createForm = new CreateFormUseCase(formRepository);
-
     const data = await request.json();
-    const form = await createForm.execute(data);
+    console.log("Dados recebidos na API:", data); // Debug
 
-    return NextResponse.json(form, { status: 201 });
+    const form = await prisma.form.create({
+      data: {
+        name: data.name,
+        slug: data.slug,
+        submitLabel: data.submitLabel,
+        endpoint: data.endpoint,
+        steps: {
+          create: data.steps.map((step: any) => ({
+            order: step.order,
+            title: step.title,
+            description: step.description,
+            fields: {
+              create: step.fields.map((field: any) => ({
+                name: field.name,
+                label: field.label,
+                type: field.type,
+                placeholder: field.placeholder,
+                required: field.required,
+                order: field.order,
+                options: field.options,
+                validation: field.validation,
+                helpText: field.helpText,
+              })),
+            },
+          })),
+        },
+      },
+    });
+
+    return NextResponse.json(form);
   } catch (error) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    console.error("Erro na API:", error); // Debug
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET() {
-  try {
-    const formRepository = new PrismaFormRepository();
-    const forms = await formRepository.findAll();
-
-    return NextResponse.json(forms);
-  } catch (error) {
-    console.log("Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        message:
+          error instanceof Error ? error.message : "Internal Server Error",
+      },
       { status: 500 }
     );
   }
