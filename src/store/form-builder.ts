@@ -2,7 +2,7 @@
 import { atom } from "jotai";
 import { focusAtom } from "jotai-optics";
 import { FormStep } from "@/core/domain/entities/Form";
-import { Field } from "@/core/domain/entities/Field";
+import { Field, WebhookVariable } from "@/core/domain/entities/Field";
 
 // Tipos
 interface FormBuilderState {
@@ -52,20 +52,32 @@ export const selectedFieldAtom = atom((get) => {
   );
 });
 
+interface NewStepData {
+  title: string;
+  description: string;
+  order: number;
+  fields: Field[];
+  variables: WebhookVariable[];
+}
 // Actions
 export const formBuilderActions = {
-  addStep: atom(null, (get, set) => {
-    const steps = get(stepsAtom);
-    const newStep: FormStep = {
-      id: `step-${Date.now()}`,
-      formId: "",
-      order: steps.length,
-      title: `Etapa ${steps.length + 1}`,
-      fields: [],
-    };
+  addStep: atom(null, (get, set, newStepData: NewStepData) => {
+    const uuid = crypto.randomUUID();
+    const formState = get(formBuilderAtom);
 
-    set(stepsAtom, [...steps, newStep]);
-    set(activeStepIdAtom, newStep.id);
+    set(formBuilderAtom, {
+      ...formState,
+      steps: [
+        ...formState.steps,
+        {
+          id: uuid,
+          formId: "", // será preenchido quando salvar no backend
+          ...newStepData,
+        },
+      ],
+    });
+
+    return uuid;
   }),
 
   updateStep: atom(

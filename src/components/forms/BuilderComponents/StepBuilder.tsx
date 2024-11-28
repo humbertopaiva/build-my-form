@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/forms/BuilderComponents/StepBuilder.tsx
+
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -13,22 +15,20 @@ import { Button } from "@/components/ui/button";
 import { Plus, Settings2 } from "lucide-react";
 import { FormBuilder } from "./FormBuilder";
 import { StepSettings } from "./StepSettings";
+import { Form, FormStep } from "@/core/domain/entities/Form";
+import { WebhookConfig, WebhookVariable } from "@/core/domain/entities/Field";
 import { useFormBuilder } from "@/store/form-builder";
-import { useState } from "react";
-import { FormStep } from "@/core/domain/entities/Form";
+import { toast } from "@/hooks/use-toast";
 
-// Componente separado para o cabeçalho da etapa
-const StepHeader = ({
-  stepId,
-  title,
-  index,
-  onEditClick,
-}: {
+// Interface para o StepHeader
+interface StepHeaderProps {
   stepId: string;
   title: string;
   index: number;
   onEditClick: () => void;
-}) => {
+}
+
+function StepHeader({ stepId, title, index, onEditClick }: StepHeaderProps) {
   return (
     <div className="flex items-center gap-2">
       <span>{title}</span>
@@ -46,7 +46,7 @@ const StepHeader = ({
       )}
     </div>
   );
-};
+}
 
 export function StepBuilder() {
   const { atoms, actions } = useFormBuilder();
@@ -58,25 +58,84 @@ export function StepBuilder() {
   const deleteStep = useSetAtom(actions.deleteStep);
   const [isEditingStep, setIsEditingStep] = useState(false);
 
+  // Função para criar o formData necessário para o FormBuilder
+  const formData: Form = {
+    id: "temp-form-id",
+    name: "Form Builder",
+    slug: "form-builder",
+    submitLabel: "Next",
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    steps: activeStep ? [activeStep] : [],
+  };
+
+  const handleFormChange = (updatedForm: Form) => {
+    if (activeStep && updatedForm.steps[0]) {
+      updateStep({
+        stepId: activeStep.id,
+        data: updatedForm.steps[0],
+      });
+    }
+  };
+
   const handleStepUpdate = (updates: Partial<FormStep>) => {
     if (activeStep) {
-      updateStep({ stepId: activeStep.id, data: updates });
-      setIsEditingStep(false);
+      try {
+        updateStep({
+          stepId: activeStep.id,
+          data: { ...activeStep, ...updates },
+        });
+        setIsEditingStep(false);
+        toast({
+          title: "Etapa atualizada",
+          description: "As alterações foram salvas com sucesso.",
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao atualizar",
+          description: "Ocorreu um erro ao salvar as alterações.",
+        });
+      }
     }
   };
 
   const handleStepDelete = () => {
     if (activeStep) {
-      deleteStep(activeStep.id);
-      setIsEditingStep(false);
+      try {
+        deleteStep(activeStep.id);
+        setIsEditingStep(false);
+        toast({
+          title: "Etapa removida",
+          description: "A etapa foi removida com sucesso.",
+        });
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao remover",
+          description: "Ocorreu um erro ao remover a etapa.",
+        });
+      }
     }
+  };
+
+  const handleAddStep = () => {
+    const newStepOrder = steps.length;
+    addStep({
+      title: `Etapa ${newStepOrder + 1}`,
+      description: "",
+      order: newStepOrder,
+      fields: [],
+      variables: [],
+    });
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Etapas do Formulário</h3>
-        <Button onClick={addStep}>
+        <Button onClick={handleAddStep}>
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Etapa
         </Button>
@@ -106,7 +165,7 @@ export function StepBuilder() {
                 )}
               </CardHeader>
               <CardContent>
-                <FormBuilder />
+                <FormBuilder formData={formData} onChange={handleFormChange} />
               </CardContent>
             </Card>
 

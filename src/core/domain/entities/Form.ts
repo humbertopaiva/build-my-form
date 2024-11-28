@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { DataMappingConfig } from "./DataMapping";
-import { Field } from "./Field";
+// import { DataMappingConfig } from "./DataMapping";
+import { Field, WebhookConfig, WebhookVariable } from "./Field";
+import { ValidationAction, ValidationOperator } from "./StepValidationConfig";
 
 export interface Form {
   id: string;
@@ -21,19 +22,45 @@ export interface FormStep {
   title: string;
   description?: string;
   fields: Field[];
-  conditionalLogic?: StepConditionalLogic;
-  dataMapping?: DataMappingConfig; // Adicionado o data mapping
+  webhook?: WebhookConfig;
+  variables: WebhookVariable[];
+  conditions?: StepCondition[];
 }
 
 export interface StepConditionalLogic {
   endpoint: string;
   validation: StepValidation[];
+  method?: "GET" | "POST";
+  includeFields?: {
+    fromPayload?: string[];
+    fromPreviousSteps?: string[];
+  };
 }
 
 export interface StepValidation {
   field: string;
-  operator: "equals" | "contains" | "greater" | "less" | "between" | "exists";
+  operator: ValidationOperator;
   value: any;
-  action: "show" | "hide" | "require" | "skip";
+  action: ValidationAction;
   targetFields?: string[];
+}
+
+// core/domain/entities/Form.ts
+export interface FormWithWebhook extends Form {
+  steps: FormStepWithWebhook[];
+}
+
+export interface StepCondition {
+  id: string;
+  stepId: string;
+  variableName: string; // Nome da variável do webhook
+  operator: ValidationOperator;
+  value: any;
+  action: "skip" | "show" | "hide"; // Ações específicas para steps
+}
+
+export interface FormStepWithWebhook extends FormStep {
+  webhook?: WebhookConfig;
+  variables: WebhookVariable[];
+  conditions?: StepCondition[];
 }

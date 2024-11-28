@@ -1,10 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/components/forms/PublicComponents/FormRenderer.tsx
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useRef, useState } from "react";
 import { Form } from "@/core/domain/entities/Form";
 import { DynamicField } from "./DynamicField";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface FormRendererProps {
   form: Form;
@@ -12,12 +16,19 @@ interface FormRendererProps {
 
 export function FormRenderer({ form }: FormRendererProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [formValidity, setFormValidity] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<
     "idle" | "success" | "error"
   >("idle");
+  const [fieldStates, setFieldStates] = useState<
+    Record<string, { visible: boolean; required: boolean; disabled: boolean }>
+  >({});
+
+  const currentStep = form.steps[currentStepIndex];
+  const progress = ((currentStepIndex + 1) / form.steps.length) * 100;
 
   const handleFieldChange = (
     fieldName: string,
@@ -35,14 +46,33 @@ export function FormRenderer({ form }: FormRendererProps) {
     }));
   };
 
-  const isFormValid = () => {
-    return Object.values(formValidity).every((valid) => valid);
+  const isStepValid = () => {
+    const visibleRequiredFields = currentStep.fields.filter((field) => {
+      const state = fieldStates[field.id];
+      return (!state || state.visible) && (state?.required || field.required);
+    });
+
+    return visibleRequiredFields.every(
+      (field) => formValues[field.name] && formValidity[field.name]
+    );
+  };
+
+  const handleNextStep = () => {
+    if (isStepValid() && currentStepIndex < form.steps.length - 1) {
+      setCurrentStepIndex((prev) => prev + 1);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex((prev) => prev - 1);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isFormValid() || isSubmitting) {
+    if (!isStepValid() || isSubmitting) {
       return;
     }
 
@@ -56,7 +86,7 @@ export function FormRenderer({ form }: FormRendererProps) {
 
     try {
       const response = await fetch(
-        form.endpoint || `/api/submissions/${form.slug}`,
+        form.endpoint || `/api/forms/${form.slug}/submit`,
         {
           method: "POST",
           body: formData,
@@ -66,15 +96,15 @@ export function FormRenderer({ form }: FormRendererProps) {
         }
       );
 
-      if (response.ok) {
-        setSubmitStatus("success");
-        // Limpar formulário após sucesso
-        setFormValues({});
-        setFormValidity({});
-        formRef.current?.reset();
-      } else {
-        setSubmitStatus("error");
+      if (!response.ok) {
+        throw new Error("Falha ao enviar formulário");
       }
+
+      setSubmitStatus("success");
+      setFormValues({});
+      setFormValidity({});
+      setCurrentStepIndex(0);
+      formRef.current?.reset();
     } catch (error) {
       console.error("Erro ao enviar formulário:", error);
       setSubmitStatus("error");
@@ -83,96 +113,102 @@ export function FormRenderer({ form }: FormRendererProps) {
     }
   };
 
+  const statusAlerts = {
+    success: (
+      <Alert className="mb-6 bg-green-50 text-green-800">
+        <CheckCircle2 className="h-5 w-5 text-green-400" />
+        <AlertDescription>
+          <h3 className="font-medium">Enviado com sucesso!</h3>
+          <p className="mt-2 text-sm">Obrigado por enviar o formulário.</p>
+        </AlertDescription>
+      </Alert>
+    ),
+    error: (
+      <Alert variant="destructive" className="mb-6">
+        <XCircle className="h-5 w-5" />
+        <AlertDescription>
+          <h3 className="font-medium">Erro ao enviar formulário</h3>
+          <p className="mt-2 text-sm">Por favor, tente novamente mais tarde.</p>
+        </AlertDescription>
+      </Alert>
+    ),
+  };
+
   return (
     <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl md:col-span-2">
       <div className="px-4 py-6 sm:p-8">
         <h1 className="text-2xl font-semibold mb-6">{form.name}</h1>
 
-        {submitStatus === "success" && (
-          <div className="rounded-md bg-green-50 p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-green-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-green-800">
-                  Enviado com sucesso!
-                </h3>
-                <div className="mt-2 text-sm text-green-700">
-                  <p>Obrigado por enviar o formulário.</p>
-                </div>
-              </div>
-            </div>
+        <div className="mb-8">
+          <Progress value={progress} className="mb-2" />
+          <p className="text-sm text-gray-500">
+            Etapa {currentStepIndex + 1} de {form.steps.length}
+          </p>
+        </div>
+
+        {currentStep.title && (
+          <div className="mb-6">
+            <h2 className="text-xl font-medium">{currentStep.title}</h2>
+            {currentStep.description && (
+              <p className="mt-1 text-gray-500">{currentStep.description}</p>
+            )}
           </div>
         )}
 
-        {submitStatus === "error" && (
-          <div className="rounded-md bg-red-50 p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  Erro ao enviar formulário
-                </h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>Por favor, tente novamente mais tarde.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {submitStatus !== "idle" && statusAlerts[submitStatus]}
 
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-          {form.fields
+          {currentStep.fields
             .sort((a, b) => a.order - b.order)
-            .map((field) => (
-              <DynamicField
-                key={field.id}
-                field={field}
-                formValues={formValues}
-                onChange={(value, isValid) =>
-                  handleFieldChange(field.name, value, isValid)
-                }
-              />
-            ))}
+            .map((field) => {
+              const fieldState = fieldStates[field.id];
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={!isFormValid() || isSubmitting}
-              className={`
-                rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm
-                ${
-                  isFormValid() && !isSubmitting
-                    ? "bg-indigo-600 hover:bg-indigo-500"
-                    : "bg-gray-400 cursor-not-allowed"
-                }
-              `}
+              if (fieldState?.visible === false) {
+                return null;
+              }
+
+              return (
+                <DynamicField
+                  key={field.id}
+                  field={field}
+                  value={formValues[field.name]}
+                  formValues={formValues}
+                  onChange={(value, isValid) =>
+                    handleFieldChange(field.name, value, isValid)
+                  }
+                  disabled={isSubmitting || fieldState?.disabled}
+                  required={fieldState?.required ?? field.required}
+                />
+              );
+            })}
+
+          <div className="flex justify-between mt-8">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePreviousStep}
+              disabled={currentStepIndex === 0 || isSubmitting}
             >
-              {isSubmitting ? "Enviando..." : form.submitLabel}
-            </button>
+              Anterior
+            </Button>
+
+            {currentStepIndex === form.steps.length - 1 ? (
+              <Button
+                type="submit"
+                disabled={!isStepValid() || isSubmitting}
+                className={!isStepValid() || isSubmitting ? "opacity-50" : ""}
+              >
+                {isSubmitting ? "Enviando..." : form.submitLabel}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleNextStep}
+                disabled={!isStepValid() || isSubmitting}
+              >
+                Próximo
+              </Button>
+            )}
           </div>
         </form>
       </div>

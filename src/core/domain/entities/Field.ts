@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/core/domain/entities/Field.ts
+
 export type FieldType =
   | "text"
   | "email"
@@ -26,6 +27,7 @@ export interface Field {
   validation?: ValidationConfig;
   helpText?: string;
   conditionalLogic?: FieldConditionalLogic;
+  webhookConditions?: WebhookFieldCondition[];
 }
 
 export interface FieldOption {
@@ -36,10 +38,8 @@ export interface FieldOption {
 export interface AsyncValidation {
   endpoint: string;
   method: "GET" | "POST";
-  payloadFields: string[]; // Campos a serem enviados na requisição
-  responseMapping: {
-    [key: string]: string; // Mapeamento de campos da resposta para campos do formulário
-  };
+  payloadFields: string[];
+  responseMapping: Record<string, string>;
 }
 
 export interface ValidationConfig {
@@ -66,32 +66,61 @@ export type ValidationRuleType =
   | "cep"
   | "custom";
 
-export interface ConditionalRule {
-  field: string;
-  operator: ConditionalOperator;
-  value: any;
-}
-
-export type ConditionalOperator =
-  | "equals"
-  | "notEquals"
-  | "contains"
-  | "notContains"
-  | "greaterThan"
-  | "lessThan";
-
-export interface FieldOption {
-  label: string;
-  value: string;
-}
-
 export interface FieldCondition {
   field: string;
-  operator: "equals" | "contains" | "greater" | "less";
+  operator: ConditionOperator;
   value: any;
 }
 
 export interface FieldConditionalLogic {
   conditions: FieldCondition[];
-  action: "show" | "hide" | "require" | "populate";
+  action: FieldAction;
+}
+
+export interface WebhookFieldCondition {
+  fieldId: string;
+  variablePath: string;
+  operator: ConditionOperator;
+  value: any;
+  action: FieldAction;
+}
+
+export type ConditionOperator =
+  | "equals"
+  | "notEquals"
+  | "contains"
+  | "notContains"
+  | "greaterThan"
+  | "lessThan"
+  | "exists"
+  | "notExists";
+
+export type FieldAction =
+  | "show"
+  | "hide"
+  | "require"
+  | "optional"
+  | "populate"
+  | "disable"
+  | "enable";
+
+export interface WebhookVariable {
+  name: string;
+  path: string;
+  type: "string" | "number" | "boolean" | "array";
+}
+
+export interface WebhookConfig {
+  enabled: boolean;
+  endpoint: string;
+  method: "GET" | "POST" | "PUT" | "PATCH";
+  headers?: Record<string, string>;
+  authType: "none" | "basic" | "bearer" | "custom";
+  authValue?: string;
+  selectedFields: Array<{
+    id: string;
+    paramName: string;
+    sendType: "body" | "query";
+  }>;
+  variables: WebhookVariable[];
 }

@@ -1,26 +1,33 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export interface DataMappingRule {
-  source: string;
-  target: string;
-  transform?: string;
+// core/domain/entities/DataMapping.ts
+
+export interface DataMapping {
+  id: string;
+  stepId: string;
+  sourceStep?: string;
+  mapping: FieldMapping;
+  transformations?: FieldTransformation[];
 }
 
-export interface DataMappingConfig {
-  rules: DataMappingRule[];
-  endpoint: string;
-  samplePayload?: string;
+export interface FieldMapping {
+  [key: string]: string; // source -> target
 }
 
-export type DataMappingOperation = {
+export interface FieldTransformation {
   field: string;
-  operation: "set" | "transform";
-  value: any;
-};
+  type: TransformationType;
+  config?: TransformationConfig;
+}
 
-// Interface para o serviço de mapeamento
-export interface IDataMappingService {
-  validatePayload(payload: string): boolean;
-  extractPaths(payload: any): string[];
-  applyMapping(data: any, rules: DataMappingRule[]): DataMappingOperation[];
-  executeTransform(value: any, transform: string): any;
+export type TransformationType =
+  | "format"
+  | "calculate"
+  | "concat"
+  | "split"
+  | "custom";
+
+export interface TransformationConfig {
+  format?: string;
+  formula?: string;
+  separator?: string;
+  customFn?: string;
 }

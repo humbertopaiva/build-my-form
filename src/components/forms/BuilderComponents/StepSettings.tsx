@@ -1,15 +1,22 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+// src/components/forms/BuilderComponents/StepSettings.tsx
+
+import { useCallback, useState } from "react";
+
+import { FormStep } from "@/core/domain/entities/Form";
+import {
+  ConditionOperator,
+  WebhookConfig,
+  WebhookFieldCondition,
+  WebhookVariable,
+} from "@/core/domain/entities/Field";
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -17,12 +24,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FormStep, StepValidation } from "@/core/domain/entities/Form";
-import { DataMappingConfigComponent } from "./DataMappingConfig";
-import { useForm } from "react-hook-form";
-import { Plus, Trash2, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { DataMappingConfig } from "@/core/domain/entities/DataMapping";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAtomValue } from "jotai";
+import { useFormBuilder } from "@/store/form-builder";
+import { X, Plus, Trash2 } from "lucide-react";
+import { WebhookConfigStep } from "./WebhookConfigStep";
 
 interface StepSettingsProps {
   step: FormStep;
@@ -38,301 +48,456 @@ export function StepSettings({
   onDelete,
 }: StepSettingsProps) {
   const [activeTab, setActiveTab] = useState("basic");
-  const [validations, setValidations] = useState<StepValidation[]>(
-    step.conditionalLogic?.validation || []
+  const [webhookEnabled, setWebhookEnabled] = useState(
+    step.webhook?.enabled || false
   );
-
-  const form = useForm({
-    defaultValues: {
-      title: step.title,
-      description: step.description || "",
-      endpoint: step.conditionalLogic?.endpoint || "",
-    },
+  const [variables, setVariables] = useState<WebhookVariable[]>(
+    step.variables || []
+  );
+  const [fieldConditions, setFieldConditions] = useState<
+    Record<string, WebhookFieldCondition[]>
+  >(() => {
+    // Inicializa as condições dos campos a partir do step
+    const conditions: Record<string, WebhookFieldCondition[]> = {};
+    step.fields.forEach((field) => {
+      if (field.webhookConditions) {
+        conditions[field.id] = field.webhookConditions;
+      }
+    });
+    return conditions;
   });
 
-  const handleDataMappingUpdate = (config: DataMappingConfig) => {
-    onUpdate({
-      ...step,
-      dataMapping: config,
+  const { atoms } = useFormBuilder();
+  const steps = useAtomValue(atoms.steps);
+
+  // Estados do webhook
+  const [endpoint, setEndpoint] = useState(step.webhook?.endpoint || "");
+  const [method, setMethod] = useState<"GET" | "POST" | "PUT" | "PATCH">(
+    step.webhook?.method || "POST"
+  );
+  const [authType, setAuthType] = useState<
+    "none" | "basic" | "bearer" | "custom"
+  >(step.webhook?.authType || "none");
+  const [selectedFields, setSelectedFields] = useState<
+    Array<{
+      id: string;
+      paramName: string;
+      sendType: "body" | "query";
+    }>
+  >(step.webhook?.selectedFields || []);
+  const [authValue, setAuthValue] = useState(step.webhook?.authValue || "");
+
+  // Obter campos dos steps anteriores
+  const getPreviousFields = useCallback(() => {
+    const currentStepIndex = steps.findIndex((s) => s.id === step.id);
+    if (currentStepIndex <= 0) return [];
+
+    return steps.slice(0, currentStepIndex).flatMap((previousStep) =>
+      previousStep.fields.map((field) => ({
+        id: field.id,
+        label: `${previousStep.title} - ${field.label}`,
+        stepId: previousStep.id,
+      }))
+    );
+  }, [steps, step.id]);
+
+  const handleFieldConditionAdd = (fieldId: string) => {
+    const currentConditions = fieldConditions[fieldId] || [];
+    setFieldConditions({
+      ...fieldConditions,
+      [fieldId]: [
+        ...currentConditions,
+        {
+          fieldId,
+          variablePath: "",
+          operator: "equals",
+          value: "",
+          action: "show",
+        },
+      ],
     });
   };
 
-  const addValidation = () => {
-    setValidations([
-      ...validations,
-      {
-        field: "",
-        operator: "equals",
-        value: "",
-        action: "show",
-        targetFields: [],
-      },
-    ]);
-  };
-
-  const updateValidation = (
+  const handleFieldConditionUpdate = (
+    fieldId: string,
     index: number,
-    field: keyof StepValidation,
-    value: string | string[] | undefined
+    updates: Partial<WebhookFieldCondition>
   ) => {
-    const updatedValidations = validations.map((validation, i) =>
-      i === index ? { ...validation, [field]: value } : validation
-    );
-    setValidations(updatedValidations);
+    const currentConditions = [...(fieldConditions[fieldId] || [])];
+    currentConditions[index] = {
+      ...currentConditions[index],
+      ...updates,
+    };
+    setFieldConditions({
+      ...fieldConditions,
+      [fieldId]: currentConditions,
+    });
   };
 
-  const removeValidation = (index: number) => {
-    setValidations(validations.filter((_, i) => i !== index));
+  const handleFieldConditionRemove = (fieldId: string, index: number) => {
+    const currentConditions = fieldConditions[fieldId] || [];
+    setFieldConditions({
+      ...fieldConditions,
+      [fieldId]: currentConditions.filter((_, i) => i !== index),
+    });
   };
 
-  const onSubmit = (data: any) => {
+  const handleSubmit = () => {
+    const webhookConfig: WebhookConfig | undefined = webhookEnabled
+      ? {
+          enabled: true,
+          endpoint,
+          method,
+          headers: {},
+          authType,
+          authValue,
+          selectedFields,
+          variables,
+        }
+      : undefined;
+
     const updates: Partial<FormStep> = {
-      ...data,
-      conditionalLogic:
-        validations.length > 0
-          ? {
-              endpoint: data.endpoint,
-              validation: validations,
-            }
-          : undefined,
+      webhook: webhookConfig,
+      variables,
+      fields: step.fields.map((field) => ({
+        ...field,
+        webhookConditions: fieldConditions[field.id] || [],
+      })),
     };
 
-    if (step.dataMapping) {
-      updates.dataMapping = step.dataMapping;
-    }
-
     onUpdate(updates);
+    onClose();
   };
-
-  const ValidationsList = () => (
-    <>
-      {validations.map((validation, index) => (
-        <div key={index} className="space-y-4 p-4 border rounded-lg bg-card">
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              value={validation.field}
-              onValueChange={(value) => updateValidation(index, "field", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Campo" />
-              </SelectTrigger>
-              <SelectContent>
-                {step.fields.map((field) => (
-                  <SelectItem key={field.id} value={field.id}>
-                    {field.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={validation.operator}
-              onValueChange={(value) =>
-                updateValidation(index, "operator", value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Operador" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="equals">Igual a</SelectItem>
-                <SelectItem value="contains">Contém</SelectItem>
-                <SelectItem value="greater">Maior que</SelectItem>
-                <SelectItem value="less">Menor que</SelectItem>
-                <SelectItem value="between">Entre</SelectItem>
-                <SelectItem value="exists">Existe</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Input
-            value={validation.value}
-            onChange={(e) => updateValidation(index, "value", e.target.value)}
-            placeholder="Valor para comparação"
-          />
-
-          <Select
-            value={validation.action}
-            onValueChange={(value) => updateValidation(index, "action", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Ação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="show">Mostrar</SelectItem>
-              <SelectItem value="hide">Esconder</SelectItem>
-              <SelectItem value="require">Tornar Obrigatório</SelectItem>
-              <SelectItem value="skip">Pular Etapa</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={() => removeValidation(index)}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Remover Regra
-          </Button>
-        </div>
-      ))}
-
-      {validations.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          Nenhuma regra de validação configurada
-        </div>
-      )}
-    </>
-  );
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
       <div className="fixed inset-0 p-4 md:p-6 overflow-y-auto">
         <div className="min-h-full flex items-center justify-center">
-          <div className="relative w-full max-w-[900px] rounded-lg shadow-lg border bg-background mx-auto animate-in zoom-in-90 duration-100">
-            {/* Header */}
+          <div className="relative w-full max-w-[900px] rounded-lg shadow-lg border bg-background mx-auto">
             <div className="flex flex-col gap-1.5 p-6 border-b">
-              <h2 className="text-lg font-semibold leading-none tracking-tight">
-                Configurações da Etapa
-              </h2>
+              <h2 className="text-lg font-semibold">Configurações da Etapa</h2>
               <p className="text-sm text-muted-foreground">
-                Configure o comportamento desta etapa do formulário
+                Configure a integração e comportamento dos campos
               </p>
             </div>
 
-            {/* Close button */}
             <Button
-              type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-4 top-4 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100"
+              className="absolute right-4 top-4"
               onClick={onClose}
             >
               <X className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
             </Button>
 
-            <div className="flex flex-col">
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <div className="px-6 pt-4">
-                  <TabsList className="grid w-full grid-cols-3 gap-4">
-                    <TabsTrigger value="basic" className="w-full">
-                      Básico
-                    </TabsTrigger>
-                    <TabsTrigger value="validation" className="w-full">
-                      Validações
-                    </TabsTrigger>
-                    <TabsTrigger value="mapping" className="w-full">
-                      Mapeamento
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-4 gap-4 px-6">
+                <TabsTrigger value="basic">Básico</TabsTrigger>
+                <TabsTrigger value="webhook" disabled={!webhookEnabled}>
+                  Webhook
+                </TabsTrigger>
+                <TabsTrigger value="variables" disabled={!webhookEnabled}>
+                  Variáveis
+                </TabsTrigger>
+                <TabsTrigger value="conditions" disabled={!webhookEnabled}>
+                  Condições
+                </TabsTrigger>
+              </TabsList>
 
-                <div className="p-6 space-y-6 min-h-[400px] max-h-[600px] overflow-y-auto">
-                  <TabsContent value="basic">
-                    <div className="space-y-4">
+              <div className="p-6 space-y-6">
+                <TabsContent value="basic">
+                  <Card>
+                    <CardContent className="pt-6 space-y-4">
                       <FormField
-                        control={form.control}
                         name="title"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Título da Etapa</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <Input {...field} defaultValue={step.title} />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Descrição</FormLabel>
-                            <FormControl>
-                              <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="webhook-enabled"
+                          checked={webhookEnabled}
+                          onCheckedChange={(checked) =>
+                            setWebhookEnabled(checked as boolean)
+                          }
+                        />
+                        <label
+                          htmlFor="webhook-enabled"
+                          className="text-sm font-medium"
+                        >
+                          Habilitar integração com webhook
+                        </label>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                      <FormField
-                        control={form.control}
-                        name="endpoint"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Endpoint</FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder="https://api.example.com/validate"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </TabsContent>
+                <TabsContent value="webhook">
+                  <WebhookConfigStep
+                    previousFields={getPreviousFields()}
+                    endpoint={endpoint}
+                    method={method}
+                    authType={authType}
+                    selectedFields={selectedFields}
+                    onEndpointChange={setEndpoint}
+                    onMethodChange={(value) =>
+                      setMethod(value as "GET" | "POST" | "PUT" | "PATCH")
+                    }
+                    onAuthTypeChange={(value) =>
+                      setAuthType(
+                        value as "none" | "basic" | "bearer" | "custom"
+                      )
+                    }
+                    onFieldsChange={setSelectedFields}
+                  />
+                </TabsContent>
 
-                  <TabsContent value="validation">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="space-y-4">
+                <TabsContent value="variables">
+                  <Card>
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <FormLabel>Variáveis do Webhook</FormLabel>
+                        <Button
+                          onClick={() =>
+                            setVariables([
+                              ...variables,
+                              { name: "", path: "", type: "string" },
+                            ])
+                          }
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Variável
+                        </Button>
+                      </div>
+
+                      {variables.map((variable, index) => (
+                        <div
+                          key={index}
+                          className="grid grid-cols-4 gap-4 p-4 border rounded-lg"
+                        >
+                          <Input
+                            value={variable.name}
+                            onChange={(e) => {
+                              const newVariables = [...variables];
+                              newVariables[index] = {
+                                ...variable,
+                                name: e.target.value,
+                              };
+                              setVariables(newVariables);
+                            }}
+                            placeholder="Nome da variável"
+                          />
+
+                          <Input
+                            value={variable.path}
+                            onChange={(e) => {
+                              const newVariables = [...variables];
+                              newVariables[index] = {
+                                ...variable,
+                                path: e.target.value,
+                              };
+                              setVariables(newVariables);
+                            }}
+                            placeholder="Caminho no JSON (data.valor)"
+                          />
+
+                          <Select
+                            value={variable.type}
+                            onValueChange={(
+                              value: "string" | "number" | "boolean" | "array"
+                            ) => {
+                              const newVariables = [...variables];
+                              newVariables[index] = {
+                                ...variable,
+                                type: value,
+                              };
+                              setVariables(newVariables);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Tipo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="string">Texto</SelectItem>
+                              <SelectItem value="number">Número</SelectItem>
+                              <SelectItem value="boolean">Sim/Não</SelectItem>
+                              <SelectItem value="array">Lista</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setVariables(
+                                variables.filter((_, i) => i !== index)
+                              );
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+
+                      {variables.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          Nenhuma variável configurada
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="conditions">
+                  <Card>
+                    <CardContent className="pt-6 space-y-6">
+                      {step.fields.map((field) => (
+                        <div key={field.id} className="space-y-4">
                           <div className="flex justify-between items-center">
-                            <h4 className="text-sm font-medium">
-                              Regras de Validação
-                            </h4>
+                            <FormLabel>{field.label}</FormLabel>
                             <Button
-                              type="button"
-                              onClick={addValidation}
+                              onClick={() => handleFieldConditionAdd(field.id)}
                               variant="outline"
                               size="sm"
                             >
                               <Plus className="h-4 w-4 mr-2" />
-                              Adicionar Regra
+                              Adicionar Condição
                             </Button>
                           </div>
-                          <ValidationsList />
+
+                          {(fieldConditions[field.id] || []).map(
+                            (condition, index) => (
+                              <div
+                                key={index}
+                                className="grid grid-cols-4 gap-4"
+                              >
+                                <Select
+                                  value={condition.variablePath}
+                                  onValueChange={(value) => {
+                                    handleFieldConditionUpdate(
+                                      field.id,
+                                      index,
+                                      {
+                                        variablePath: value,
+                                      }
+                                    );
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Variável" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {variables.map((v) => (
+                                      <SelectItem key={v.name} value={v.name}>
+                                        {v.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                <Select
+                                  value={condition.operator}
+                                  onValueChange={(value) => {
+                                    handleFieldConditionUpdate(
+                                      field.id,
+                                      index,
+                                      {
+                                        operator: value as ConditionOperator,
+                                      }
+                                    );
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Operador" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="equals">
+                                      Igual a
+                                    </SelectItem>
+                                    <SelectItem value="notEquals">
+                                      Diferente de
+                                    </SelectItem>
+                                    <SelectItem value="contains">
+                                      Contém
+                                    </SelectItem>
+                                    <SelectItem value="notContains">
+                                      Não contém
+                                    </SelectItem>
+                                    <SelectItem value="greaterThan">
+                                      Maior que
+                                    </SelectItem>
+                                    <SelectItem value="lessThan">
+                                      Menor que
+                                    </SelectItem>
+                                    <SelectItem value="exists">
+                                      Existe
+                                    </SelectItem>
+                                    <SelectItem value="notExists">
+                                      Não existe
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+
+                                <Input
+                                  value={condition.value}
+                                  onChange={(e) => {
+                                    handleFieldConditionUpdate(
+                                      field.id,
+                                      index,
+                                      {
+                                        value: e.target.value,
+                                      }
+                                    );
+                                  }}
+                                  placeholder="Valor"
+                                />
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    handleFieldConditionRemove(field.id, index)
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            )
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </div>
+            </Tabs>
 
-                  <TabsContent value="mapping">
-                    <DataMappingConfigComponent
-                      fields={step.fields}
-                      config={step.dataMapping}
-                      onUpdate={handleDataMappingUpdate}
-                    />
-                  </TabsContent>
-                </div>
-              </Tabs>
-
-              <div className="flex items-center justify-between p-6 border-t bg-muted/50">
-                {step.order > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={onDelete}
-                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir Etapa
-                  </Button>
-                )}
-                <div className="space-x-2 ml-auto">
-                  <Button type="button" variant="outline" onClick={onClose}>
-                    Cancelar
-                  </Button>
-                  <Button type="button" onClick={form.handleSubmit(onSubmit)}>
-                    Salvar
-                  </Button>
-                </div>
+            <div className="flex items-center justify-between p-6 border-t bg-muted/50">
+              {step.order > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={onDelete}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Etapa
+                </Button>
+              )}
+              <div className="space-x-2 ml-auto">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSubmit}>Salvar</Button>
               </div>
             </div>
           </div>
